@@ -147,7 +147,6 @@ class PyAbstractItemHandler(QObject):
 
         item = PyItem(self.scrollWidget.btnWidget, self, _no, _title, x, y, self.scrollWidget.width()-20, self.buttonHeight)
         self.btnWidget.resize(self.btnWidget.width(), y+self.buttonHeight)
-        self.scrollWidget.resize(self.btnWidget.width(), y+self.buttonHeight)
         item.oY = y 
 
         self.buttonList.append(item)
