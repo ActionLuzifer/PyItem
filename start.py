@@ -9,8 +9,7 @@ Created on 29.08.2013
 
 import sys
 
-from PyQt4 import QtCore
-from PyQt4.QtGui import QWidget, QApplication
+from PyQt4.QtGui import QApplication
 
 import PyItem
 
@@ -23,6 +22,7 @@ if __name__ == '__main__':
     # create mainwindow
     scrollWidget = PyItem.PyScrollWidget()
     scrollWidget.move(100,100)
+    scrollWidget.resize(800, 600)
     btnHandler = PyItem.PyAbstractItemHandler(scrollWidget)
     scrollWidget.show()
 
