@@ -18,7 +18,7 @@ class PyScrollWidget(QScrollArea):
     def __init__(self, _parent=None):
         QScrollArea.__init__(self, _parent)
     
-        #self.setMouseTracking(True)
+        self.setMouseTracking(True)
         # ScrollBarAlwaysOff == 1
         # TODO: Finden wo "ScrollBarAlwaysOff" definiert ist und dann einsetzen statt der Zahl
         self.setHorizontalScrollBarPolicy(1)
@@ -28,7 +28,8 @@ class PyScrollWidget(QScrollArea):
         else:
             self.setGeometry(1,1,1,1)
 
-        self.btnWidget = QWidget()
+        self.btnWidget = QWidget(self)
+        self.btnWidget.setMouseTracking(True)
         self.oldSizeX = 0
         self.oldSizeY = 0
         self.oldSizeWidth  = 1
@@ -81,7 +82,6 @@ class PyScrollWidget(QScrollArea):
 
 
     def mouseMoveEvent(self, _qmouseevent):
-        print("rapante")
         self.emit(QtCore.SIGNAL(self.SIGNAL_mousemove), _qmouseevent)
         return QWidget.mouseMoveEvent(self, _qmouseevent)
 
@@ -95,7 +95,7 @@ class PyScrollWidget(QScrollArea):
         self.emit(QtCore.SIGNAL(self.SIGNAL_mouserelease), _event)
         return QWidget.mouseReleaseEvent(self, _event)
 
-#------------------------------------------------------------------------------------------------------------------------------------------#
+
 
 class PyAbstractItemHandler(QObject):
 
@@ -115,10 +115,10 @@ class PyAbstractItemHandler(QObject):
         QObject.connect(self.scrollWidget, QtCore.SIGNAL(self.scrollWidget.SIGNAL_mouserelease), self.mouseReleaseEvent)
         
         self.buttonHeight = 20
-        self.buttonGap = 25
+        self.buttonGap = 10
         self.buttonList = []
         self.buttonListVisible = []
-        self.buttonListHovered = []
+        self.buttonHovered = None
         self.buttonListSelected = []
         self.isMultiSelection = False
         self.buttonListIsEmpty = True
@@ -129,9 +129,9 @@ class PyAbstractItemHandler(QObject):
         self.mouseHORIZONTAL = 2
         self.vertScrollbarPosOld = 0
         self.isMouseScroll = False
+        self.btnMousePress = None
         print("laenge Buttonlist:",len(self.buttonList))
 
-    #--------------------------------------------------------------------------------------------------------------------------------------#
 
     def addButton(self, _no, _title):
         x = 0
@@ -151,64 +151,50 @@ class PyAbstractItemHandler(QObject):
         if self.isButtonVisible(item):
             item.show()
 
-    #--------------------------------------------------------------------------------------------------------------------------------------#
 
-    def onMouseMove(self, senderEvent):
-        print("PyAbstractItemHandler::onMouseMove()")
-        (sender, _qmouseevent) = senderEvent
-        if sender.isMousePress:
-            # scrollen
-            pass
+    def getMouseKoords(self):
+        return self.scrollWidget.mapFromGlobal(QCursor.pos())
 
-    #--------------------------------------------------------------------------------------------------------------------------------------#
 
-    def onMouseHover(self, senderEvent):
-        print("PyAbstractItemHandler::onMouseHover()")
-        (sender, _qmouseevent) = senderEvent
-        for button in self.buttonListHovered:
-            button.isHovered = False
-            button.decorate()
-        del(self.buttonListHovered)
-        self.buttonListHovered = []
-        sender.isHovered = True
-        sender.decorate()
-        self.buttonListHovered.append(sender)
-        mousePos = self.scrollWidget.mapFromGlobal(QCursor.pos())
-        print(mousePos)
+    def getBtnUnderMouse(self, _koord):
+        '''Returns the Button which has this koordinates in its region.
+        '''
+        theBtn = None
+        vertScrollBarVerschiebung = self.scrollWidget.verticalScrollBar().value()
+        koordX = _koord.x()
+        koordY = _koord.y()+vertScrollBarVerschiebung
+        for btn in self.buttonList:
+            if ( (btn.x() < koordX)
+                 and (btn.y() < koordY)
+                 and (btn.x() + btn.width() > koordX)
+                 and (btn.y() + btn.height() > koordY)):
+                theBtn = btn
+                break
+        return theBtn
 
-    #--------------------------------------------------------------------------------------------------------------------------------------#
 
-    def onMousePressEvent(self, senderEvent):
-        (sender, _qmouseevent) = senderEvent
-        print("PyAbstractItemHandler::onMousePressEvent()")
-        sender.isMousePress = True
-        self.isMousePressed = True
-        sender.isSelected = True
-        sender.decorate()
-
-    #--------------------------------------------------------------------------------------------------------------------------------------#
-
-    def onMouseReleaseEvent(self, senderEvent):
-        (sender, _qmouseevent) = senderEvent
-        print("PyAbstractItemHandler::onMouseReleaseEvent()")
-        # dekorieren & aufräumen
-        # wenn beim loslassen der Cursor über dem Button liegt und nicht gescrollt wurde, dann ist er Selected
-        sender.isMousePress = False
-        if self.isMouseScroll:
-            sender.isSelected = False
+    def checkForHovering(self, mousePos):
+        # moeglicherweise ist ein Button unter der Maus
+        btn = self.getBtnUnderMouse(mousePos)
+        if btn:            
+            # wenn über nem Button -> hovern
+            self.onMouseHover(btn)
         else:
-            if not self.isMultiSelection:
-                for btn in self.buttonListSelected:
-                    btn.isSelected = False
-                self.buttonListSelected = []
-            self.buttonListSelected.append(sender)
-        sender.decorate()
-        
-        self.isMousePressed = False
-        self.mouseMoveDirection = None
-        self.isMouseScroll = False
+            if self.buttonHovered:
+                self.buttonHovered.isHovered = False
+                self.buttonHovered.decorate()
+                self.buttonHovered = None
 
-    #--------------------------------------------------------------------------------------------------------------------------------------#
+
+    def onMouseHover(self, _button):
+        print("PyAbstractItemHandler::onMouseHover()")
+        if self.buttonHovered:
+            self.buttonHovered.isHovered = False
+            self.buttonHovered.decorate()
+        _button.isHovered = True
+        _button.decorate()
+        self.buttonHovered = _button
+
 
     def onScroll(self):
         for button in self.buttonListVisible:
@@ -218,25 +204,22 @@ class PyAbstractItemHandler(QObject):
             if self.isButtonVisible(button):
                 self.buttonListVisible.append(button)
 
-    #--------------------------------------------------------------------------------------------------------------------------------------#
-
     def isButtonVisible(self, _button):
         if ( _button.y() > self.scrollWidget.scrollY) and (_button.y() < (self.scrollWidget.scrollY + self.scrollWidget.height()) ):
             return True
         else:
             return False
         
-    #--------------------------------------------------------------------------------------------------------------------------------------#
-
     def mouseMoveEvent(self, _qmouseevent):
         print("PyAbstractItemHandler::mouseMoveEvent()")
-        mousePos = self.scrollWidget.mapFromGlobal(QCursor.pos())
+        mousePos = self.getMouseKoords()
         print("oldMousePos:", self.oldMousePos, " | newMousePos:",mousePos)
         if self.isMousePressed:
+            # ich werde entweder scrollen oder 'in den Button zoomen' wollen
             vertDelta = mousePos.y()-self.oldMousePos.y()
             horzDelta = mousePos.x()-self.oldMousePos.x()
-            print("vertDelta: ", vertDelta)
-            print("horzDelta: ", horzDelta)
+            #print("vertDelta: ", vertDelta)
+            #print("horzDelta: ", horzDelta)
             if ((abs(vertDelta) > 10) 
                 and ((self.mouseMoveDirection == None) or (self.mouseMoveDirection == self.mouseVERTICAL))):
                 
@@ -244,38 +227,94 @@ class PyAbstractItemHandler(QObject):
                 unterschied = mousePos.y() - self.oldMousePos.y()
                 
                 scrollbarPosNew = self.vertScrollbarPosOld-unterschied
-                print("scrollbarPosOld:", self.vertScrollbarPosOld)
-                print("scrollbarPosNew:", scrollbarPosNew)
+                #print("scrollbarPosOld:", self.vertScrollbarPosOld)
+                #print("scrollbarPosNew:", scrollbarPosNew)
                 self.scrollWidget.verticalScrollBar().setValue(scrollbarPosNew)
                 self.isMouseScroll = True
             elif (abs(horzDelta) > 10) and ( (self.mouseMoveDirection == None) or (self.mouseMoveDirection == self.mouseHORIZONTAL) ):
                 self.mouseMoveDirection = self.mouseHORIZONTAL
+                print("ZOOM")
                 # 'Zoom' in den Button
         else:
-            pass
-            for btn in self.buttonListHovered:
-                btn.isHovered = False
-                btn.decorate()
-            self.buttonListHovered = []
-        
-    #--------------------------------------------------------------------------------------------------------------------------------------#
-        
+            self.checkForHovering(mousePos)
+
+
     def mousePressEvent(self, _event):
         print("PyAbstractItemHandler::mousePressEvent()")
-        senderEvent = (self, _event)
-        mousePos = self.scrollWidget.mapFromGlobal(QCursor.pos())
-        self.oldMousePos = mousePos
-        self.vertScrollbarPosOld = self.scrollWidget.verticalScrollBar().value()
+        
+        mouseKoords = self.getMouseKoords()
+        self.btnMousePress = self.getBtnUnderMouse(mouseKoords)
+        
+        if self.btnMousePress:
+            self.btnMousePress.isMousePress = True
+            self.btnMousePress.isSelectedForScroll = True
+            self.btnMousePress.decorate()
+
+        
         self.isMousePressed = True
+        self.oldMousePos = mouseKoords
+        self.vertScrollbarPosOld = self.scrollWidget.verticalScrollBar().value()
 
 
     def mouseReleaseEvent(self, _event):
         print("PyAbstractItemHandler::mouseReleaseEvent()")
-        senderEvent = (self, _event)
-        mousePos = self.scrollWidget.mapFromGlobal(QCursor.pos())
-        self.oldMousePos = mousePos
+        mouseKoords = self.getMouseKoords()
+        self.oldMousePos = mouseKoords
         self.isMousePressed = False
         self.isMouseScroll = False
+        
+        # dekorieren & aufräumen
+        # wenn beim loslassen der Cursor über dem Button liegt und nicht gescrollt wurde, dann ist er Selected
+        btn = self.getBtnUnderMouse(mouseKoords)
+        if btn:
+            print("is Btn")
+            if btn == self.btnMousePress:
+                print("buttons are the same")
+                if not self.isMouseScroll:
+                    # wurde nicht gescrollt, sondern der Button wurde ausgewählt
+                    if not self.isMultiSelection:
+                        # alte Buttons deselektieren
+                        for btnSelected in self.buttonListSelected:
+                            btnSelected.isSelectedForScroll = False
+                            btnSelected.isSelected = False
+                            btnSelected.decorate()
+                        self.buttonListSelected = []
+                    btn.isSelected = True
+                    self.buttonListSelected.append(btn)
+                # der beim MousePress ausgewählte Button wird deselektiert
+                if self.btnMousePress:
+                    print("btnMousePress wird deselektiert #1")
+                    self.btnMousePress.isSelectedForScroll = False
+                    self.btnMousePress.isMousePress = False
+                    self.btnMousePress.decorate()
+            else:
+                print("not the same buttons")
+                # der beim MousePress ausgewählte Button wird deselektiert
+                if self.btnMousePress:
+                    print("btnMousePress wird deselektiert #2")
+                    self.btnMousePress.isSelectedForScroll = False
+                    self.btnMousePress.isMousePress = False
+                    self.btnMousePress.decorate()
+            
+            # aktuellen Button deselektieren
+            btn.isSelectedForScroll = False
+            btn.isMousePress = False
+            btn.decorate()
+
+        else:
+            print("no button")
+            # der beim MousePress ausgewählte Button wird deselektiert
+            if self.btnMousePress:
+                print("btnMousePress wird deselektiert #3")
+                self.btnMousePress.isSelectedForScroll = False
+                self.btnMousePress.isMousePress = False
+                self.btnMousePress.decorate()
+                
+        self.isMousePressed = False
+        self.mouseMoveDirection = None
+        self.isMouseScroll = False
+        self.btnMousePress = None
+        self.checkForHovering(mouseKoords)
 
 
     def slotOnWidthChange(self, _width):
@@ -293,60 +332,16 @@ class PyAbstractItem(QFrame):
         self.isMousePress = False
         self.isSelected = False
         self.isHovered = False
+        self.isZooming = False
+        self.isSelectedForScroll = False
+        
         self.decorateNormal()
-        self.defineSignals(_parent)
         self.move(_x,_y)
         self.resize(_width,_height)
         self.show()
 
 
-    def event(self, _qevent):
-        #print("PyAbstractItem::event()")
-        return QWidget.event(self, _qevent)
-
-
-    def mouseMoveEvent(self, _qmouseevent):
-        print("PyAbstractItem::mouseMoveEvent()")
-        print(str(_qmouseevent.pos()))
-        senderEvent = (self, _qmouseevent)
-        self.emit(QtCore.SIGNAL(self.SIGNAL_mousemove), senderEvent)
-        return QWidget.mouseMoveEvent(self, _qmouseevent)
-
-
-    def mousePressEvent(self, _event):
-        print("PyAbstractItem::mousePressEvent()")
-        senderEvent = (self, _event)
-        self.emit(QtCore.SIGNAL(self.SIGNAL_mousepress), senderEvent)
-        return QWidget.mousePressEvent(self, _event)
-
-
-    def mouseReleaseEvent(self, _event):
-        print("PyAbstractItem::mouseReleaseEvent()")
-        senderEvent = (self, _event)
-        self.emit(QtCore.SIGNAL(self.SIGNAL_mouserelease), senderEvent)
-        return QWidget.mouseReleaseEvent(self, _event)
-
-
-    def defineSignals(self, _parent):
-        print("PyAbstractItem::defineSignals()")
-        self.SIGNAL_mousemove = 'mousemove(PyQt_PyObject)'
-        self.SIGNAL_mousepress = 'mousepress(PyQt_PyObject)'
-        self.SIGNAL_mouserelease = 'mouserelease(PyQt_PyObject)'
-        QObject.connect(self, QtCore.SIGNAL(self.SIGNAL_mousemove), self.mousemoveSlot)
-        QObject.connect(self, QtCore.SIGNAL(self.SIGNAL_mousemove), self.itemHandler.onMouseMove)
-        QObject.connect(self, QtCore.SIGNAL(self.SIGNAL_mousemove), self.itemHandler.onMouseHover)
-        QObject.connect(self, QtCore.SIGNAL(self.SIGNAL_mousepress), self.itemHandler.onMousePressEvent)
-        QObject.connect(self, QtCore.SIGNAL(self.SIGNAL_mouserelease), self.itemHandler.onMouseReleaseEvent)
-        
-
-
-    def mousemoveSlot(self, sender):
-        print("PyAbstractItem::mousemoveSlot()")
-        print("sender:",sender)
-
-
     def decorateNormal(self):
-        #print("PyAbstractItem::decorateNormal()")
         # Die normalen Anzeigeeinstellungen einstellen
         self.setStyleSheet("background-color: white;");
 
@@ -357,9 +352,16 @@ class PyAbstractItem(QFrame):
         self.setStyleSheet("background-color: blue;");
 
 
+    def decorateZooming(self):
+        self.setStyleSheet("background-color: purple;")
+
+
     def decorate(self):
-        print("PyAbstractItem::decorate()")
-        if self.isMousePress:
+        #print("PyAbstractItem::decorate()")
+        if self.isZooming:
+            pass
+        elif self.isMousePress:
+            # mousePress = selected & hovered gleichzeitig
             if self.isSelected:
                 # (halb)Selected, Hovered und selected
                 self.decorateHalfselectedAndHoveredAndSelected()
@@ -402,10 +404,6 @@ class PyAbstractItem(QFrame):
         # Anzeigeeinstellungen wenn Objekt z.b. per Mausklick oder Tastaturcursor ausgewählt wurde
         self.setStyleSheet("background-color: orange;")
         pass
-    
-    def decorateMousepress(self):
-        print("PyAbstractItem::decorateMousepress()")
-        self.setBackgroundRole(QtGui.QPalette.Highlight)
 
 
 
@@ -413,16 +411,10 @@ class PyItem(PyAbstractItem):
     
     def __init__(self, _parent, _itemHandler, _number, _title, _x, _y, _width, _height):
         PyAbstractItem.__init__(self, _parent, _itemHandler, _x, _y, _width, _height)
-        PyAbstractItem.setMouseTracking(self, True)
+        #PyAbstractItem.setMouseTracking(self, True)
+        self.setMouseTracking(True)
         self.number = _number
         self.title = _title
         self.titleLabel = QtGui.QLabel(self)
         self.titleLabel.setText(self.title)
         self.titleLabel.show()
-        
-
-
-if __name__ == '__main__':
-    qapp = QApplication(sys.argv);
-    #newgui = PyItem()
-    sys.exit(qapp.exec_()) 
