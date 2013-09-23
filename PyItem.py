@@ -106,6 +106,9 @@ class PyAbstractItemHandler(QObject):
         self.scrollWidget = _scrollWidget
         self.btnWidget = self.scrollWidget.btnWidget
         
+        
+        self.SIGNAL_ZOOM          = 'SIGNAL_ZOOM(PyQt_PyObject)'
+        
         ### CONNECTIONS ###
         # WidthChange        
         QObject.connect(self.scrollWidget, QtCore.SIGNAL(self.scrollWidget.SIGNAL_onWidthChange), self.slotOnWidthChange)
@@ -130,6 +133,7 @@ class PyAbstractItemHandler(QObject):
         self.vertScrollbarPosOld = 0
         self.isMouseScroll = False
         self.btnMousePress = None
+        self.btnZooming = None
         print("laenge Buttonlist:",len(self.buttonList))
 
 
@@ -233,7 +237,13 @@ class PyAbstractItemHandler(QObject):
                 self.isMouseScroll = True
             elif (abs(horzDelta) > 10) and ( (self.mouseMoveDirection == None) or (self.mouseMoveDirection == self.mouseHORIZONTAL) ):
                 self.mouseMoveDirection = self.mouseHORIZONTAL
-                print("ZOOM")
+                btn = self.getBtnUnderMouse(mousePos)
+                if btn:
+                    print("ich möchte mal Zoomen")
+                    self.btnZooming = btn
+                    btn.isZooming = True
+                    btn.decorate()
+                
                 # 'Zoom' in den Button
         else:
             self.checkForHovering(mousePos)
@@ -250,7 +260,7 @@ class PyAbstractItemHandler(QObject):
             self.btnMousePress.isSelectedForScroll = True
             self.btnMousePress.decorate()
 
-        
+        self.btnZooming = None
         self.isMousePressed = True
         self.oldMousePos = mouseKoords
         self.vertScrollbarPosOld = self.scrollWidget.verticalScrollBar().value()
@@ -270,7 +280,7 @@ class PyAbstractItemHandler(QObject):
             print("is Btn")
             if btn == self.btnMousePress:
                 print("buttons are the same")
-                if not self.isMouseScroll:
+                if not self.isMouseScroll and self.btnZooming == None:
                     # wurde nicht gescrollt, sondern der Button wurde ausgewählt
                     if not self.isMultiSelection:
                         # alte Buttons deselektieren
@@ -281,6 +291,12 @@ class PyAbstractItemHandler(QObject):
                         self.buttonListSelected = []
                     btn.isSelected = True
                     self.buttonListSelected.append(btn)
+                elif self.btnZooming:
+                    print("jetzt muss in den Button gezooomt werden")
+                    self.emit(QtCore.SIGNAL(self.SIGNAL_ZOOM), self.btnZooming)
+                    self.btnZooming.isZooming = False
+                    self.btnZooming.decorate()
+                    self.btnZooming = None
                 # der beim MousePress ausgewählte Button wird deselektiert
                 if self.btnMousePress:
                     print("btnMousePress wird deselektiert #1")
@@ -359,7 +375,7 @@ class PyAbstractItem(QFrame):
     def decorate(self):
         #print("PyAbstractItem::decorate()")
         if self.isZooming:
-            pass
+            self.decorateZooming()
         elif self.isMousePress:
             # mousePress = selected & hovered gleichzeitig
             if self.isSelected:
