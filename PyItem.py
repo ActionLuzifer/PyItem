@@ -6,9 +6,8 @@ Created on 17.08.2013
 @author: Duncan MC Leod
 '''
 
-import sys
 from PyQt4 import QtCore, QtGui
-from PyQt4.QtGui import QWidget, QApplication, QFrame, QPalette, QScrollArea, QCursor, QColor
+from PyQt4.QtGui import QWidget, QFrame, QScrollArea, QCursor
 from PyQt4.QtCore import pyqtSignal, QObject, QPoint
 from numpy.ma.core import abs
 
