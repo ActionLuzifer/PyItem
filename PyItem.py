@@ -13,6 +13,8 @@ from PyQt4.QtCore import pyqtSignal, QObject, QPoint
 from numpy.ma.core import abs
 
 
+KEY_STRG = 16777249
+
 
 class PyScrollWidget(QScrollArea):
     def __init__(self, _parent=None):
@@ -47,6 +49,8 @@ class PyScrollWidget(QScrollArea):
         self.SIGNAL_mousepress    = 'SIGNAL_mousepress(PyQt_PyObject)'
         self.SIGNAL_mousemove     = 'SIGNAL_mousemove(PyQt_PyObject)'
         self.SIGNAL_mouserelease  = 'SIGNAL_mouserelease(PyQt_PyObject)'
+        self.SIGNAL_keyPress      = 'SIGNAL_keypress(PyQt_PyObject)'
+        self.SIGNAL_keyRelease    = 'SIGNAL_keyrelease(PyQt_PyObject)'
         
 
     def resizeEvent(self, _resizeEvent):
@@ -96,6 +100,16 @@ class PyScrollWidget(QScrollArea):
         return QWidget.mouseReleaseEvent(self, _event)
 
 
+    def keyPressEvent(self, _event):
+        self.emit(QtCore.SIGNAL(self.SIGNAL_keyPress), _event)
+        return QWidget.keyPressEvent(self, _event)
+
+
+    def keyReleaseEvent(self, _event):
+        self.emit(QtCore.SIGNAL(self.SIGNAL_keyRelease), _event)
+        return QWidget.keyReleaseEvent(self, _event)
+
+
 
 class PyAbstractItemHandler(QObject):
 
@@ -116,6 +130,9 @@ class PyAbstractItemHandler(QObject):
         QObject.connect(self.scrollWidget, QtCore.SIGNAL(self.scrollWidget.SIGNAL_mousemove), self.mouseMoveEvent)
         QObject.connect(self.scrollWidget, QtCore.SIGNAL(self.scrollWidget.SIGNAL_mousepress), self.mousePressEvent)
         QObject.connect(self.scrollWidget, QtCore.SIGNAL(self.scrollWidget.SIGNAL_mouserelease), self.mouseReleaseEvent)
+        QObject.connect(self.scrollWidget, QtCore.SIGNAL(self.scrollWidget.SIGNAL_keyPress), self.keyPressEvent)
+        QObject.connect(self.scrollWidget, QtCore.SIGNAL(self.scrollWidget.SIGNAL_keyRelease), self.keyReleaseEvent)
+        
         
         self.buttonHeight = 20
         self.buttonGap = 10
@@ -281,15 +298,23 @@ class PyAbstractItemHandler(QObject):
                 print("buttons are the same")
                 if not self.isMouseScroll and self.btnZooming == None:
                     # wurde nicht gescrollt, sondern der Button wurde ausgewählt
-                    if not self.isMultiSelection:
-                        # alte Buttons deselektieren
-                        for btnSelected in self.buttonListSelected:
-                            btnSelected.isSelectedForScroll = False
-                            btnSelected.isSelected = False
-                            btnSelected.decorate()
-                        self.buttonListSelected = []
-                    btn.isSelected = True
-                    self.buttonListSelected.append(btn)
+                    if btn.isSelected == False:
+                        # Button war vorher nicht ausgewählt
+                        if not self.isMultiSelection:
+                            # alte Buttons deselektieren
+                            for btnSelected in self.buttonListSelected:
+                                btnSelected.isSelectedForScroll = False
+                                btnSelected.isSelected = False
+                                btnSelected.decorate()
+                            self.buttonListSelected = []
+                        btn.isSelected = True
+                        self.buttonListSelected.append(btn)
+                    else:
+                        # Button war vorher ausgewählt, wird nun deselektiert
+                        btn.isSelected = False
+                        if btn in self.buttonListSelected:
+                            index = self.buttonListSelected.index(btn)
+                            self.buttonListSelected.pop(index)
                 elif self.btnZooming:
                     print("jetzt muss in den Button gezooomt werden")
                     self.emit(QtCore.SIGNAL(self.SIGNAL_ZOOM), self.btnZooming)
@@ -330,6 +355,18 @@ class PyAbstractItemHandler(QObject):
         self.isMouseScroll = False
         self.btnMousePress = None
         self.checkForHovering(mouseKoords)
+
+
+    def keyPressEvent(self, _event):
+        if _event.key() == KEY_STRG:
+            print("setMultiSelection")
+            self.isMultiSelection = True
+
+
+    def keyReleaseEvent(self, _event):
+        if _event.key() == KEY_STRG:
+            print("unsetMultiSelection")
+            self.isMultiSelection = False
 
 
     def slotOnWidthChange(self, _width):
