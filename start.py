@@ -24,8 +24,9 @@ if __name__ == '__main__':
     scrollWidget.move(400,100)
     scrollWidget.resize(800, 600)
     btnHandler = PyItem.PyAbstractItemHandler(scrollWidget)
+    print("ScrollBar.width():",scrollWidget.verticalScrollBar().width())
     scrollWidget.show()
-
+    print("ScrollBar.width():",scrollWidget.verticalScrollBar().width())
     
     
     
@@ -47,6 +48,22 @@ if __name__ == '__main__':
     btnHandler.addButton("#14", "Titel14")
     btnHandler.addButton("#15", "Titel15")
     btnHandler.addButton("#16", "Titel16")
+    btnHandler.addButton("#17", "Titel17")
+    btnHandler.addButton("#18", "Titel18")
+    btnHandler.addButton("#19", "Titel19")
+    btnHandler.addButton("#20", "Titel20")
+    btnHandler.addButton("#21", "Titel21")
+    #btnHandler.addButton("#22", "Titel22")
+    #btnHandler.addButton("#23", "Titel23")
+    #btnHandler.addButton("#24", "Titel24")
+    #btnHandler.addButton("#25", "Titel25")
+    #btnHandler.addButton("#26", "Titel26")
+    #btnHandler.addButton("#27", "Titel27")
+    #btnHandler.addButton("#28", "Titel28")
+    #btnHandler.addButton("#29", "Titel29")
+    
+    if scrollWidget.verticalScrollBar().maximum() != scrollWidget.verticalScrollBar().minimum():
+        scrollWidget.emit(PyItem.QtCore.SIGNAL(scrollWidget.SIGNAL_onWidthChange), scrollWidget.getWidthForButtons())
     
     # start application
     sys.exit(qapp.exec_()) 

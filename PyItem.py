@@ -51,18 +51,31 @@ class PyScrollWidget(QScrollArea):
         self.SIGNAL_keyRelease    = 'SIGNAL_keyrelease(PyQt_PyObject)'
         
 
+    def getWidthForButtonWidget(self):
+        # Test ob die verticalScrollBar sichtbar ist oder theoretisch sichtbar sein müsste, was sich darin aeussert das min und max unterschiedlich sind 
+        if self.verticalScrollBar().isVisible() or (self.verticalScrollBar().maximum() != self.verticalScrollBar().minimum()):
+            if self.verticalScrollBar().isVisible():
+                # echte width nehmen
+                verticalScrollBarWidth = self.verticalScrollBar().width()
+            else:
+                # Standard-Widthgröße nehmen
+                verticalScrollBarWidth = self.verticalScrollBar().sizeHint().width()
+            return self.width()-verticalScrollBarWidth
+        else:
+            return self.width()
+
+
+    def getWidthForButtons(self):
+        return self.getWidthForButtonWidget()-3
+
+
     def resizeEvent(self, _resizeEvent):
         newWidthScrollArea = self.size().width()
         if newWidthScrollArea != self.oldSizeWidth:
-            if self.verticalScrollBar().isVisible():
-                newWidthBtnWidget = self.width()-self.verticalScrollBar().width()
-            else:
-                newWidthBtnWidget = self.width()
-            
-            self.btnWidget.resize(newWidthBtnWidget, self.btnWidget.height())
+            self.btnWidget.resize(self.getWidthForButtonWidget(), self.btnWidget.height())
             self.oldSizeWidth = self.btnWidget.size().width()
             
-            self.emit(QtCore.SIGNAL(self.SIGNAL_onWidthChange), newWidthBtnWidget-3)
+            self.emit(QtCore.SIGNAL(self.SIGNAL_onWidthChange), self.getWidthForButtons())
         pass
         
         return QScrollArea.resizeEvent(self, _resizeEvent)
@@ -155,7 +168,7 @@ class PyAbstractItemHandler(QObject):
         else:
             y = (len(self.buttonList))*(self.buttonHeight+self.buttonGap)
 
-        item = PyItem(self.scrollWidget.btnWidget, self, _no, _title, x, y, self.scrollWidget.width()-20, self.buttonHeight)
+        item = PyItem(self.scrollWidget.btnWidget, self, _no, _title, x, y, self.scrollWidget.getWidthForButtons(), self.buttonHeight)
         self.btnWidget.resize(self.btnWidget.width(), y+self.buttonHeight)
         item.oY = y 
 
